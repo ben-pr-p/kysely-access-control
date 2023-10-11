@@ -6,7 +6,14 @@ It allows developers to define access control layers using guards, ensuring that
 
 It can also implement security similar to Postgres Row-Level Security (RLS).
 
+> For a higher level library built on top of this, check out [`kysely-grants`](https://www.npmjs.com/package/kysely-grants)!
+
 ## Quick Usage
+Install the packages:
+```
+yarn add kysely-access-control
+yarn add kysely-grants
+```
 
 ```typescript
 import { createAccessControlPlugin, KyselyAccessControlGuard, Allow, Deny, Update, Delete, ColumnInUpdateSet } from 'kysely-access-control';
@@ -41,7 +48,7 @@ const events = await db
 // throws 'UPDATE denied on events.is_deleted'
 ```
 
-`kysely-access-control` is a relatively low level library.  For a higher level system that implements functionality similar to Postgres, check out `kysely-grants`.
+`kysely-access-control` is a relatively low level library.  For a higher level system that implements functionality similar to Postgres, check out [`kysely-grants`](https://www.npmjs.com/package/kysely-grants).
 
 ## Motivation (Why Implement Permissions at the Query Builder Layer?)
 
