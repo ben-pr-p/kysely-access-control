@@ -1,0 +1,17 @@
+{
+  "name": "kysely-grants",
+  "main": "dist/index.ts",
+  "scripts": {
+    "compile": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "kysely-access-control": "workspace:*"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0",
+    "kysely-access-control": "^0.0.2"
+  }
+}

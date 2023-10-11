@@ -2,11 +2,9 @@
   "name": "kysely-utils",
   "module": "index.ts",
   "type": "module",
-  "scripts": {
-    "build:kysely-acl": "bun build"
-  },
   "devDependencies": {
-    "bun-types": "latest"
+    "bun-types": "latest",
+    "typescript": "^5.2.2"
   },
   "peerDependencies": {
     "typescript": "^5.0.0",

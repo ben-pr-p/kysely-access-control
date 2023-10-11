@@ -17,6 +17,10 @@
     "allowJs": true,
     "types": [
       "bun-types" // add Bun global
-    ]
-  }
+    ],
+  },
+  "files": [],
+  "references": [
+    { "path": "../kysely-access-control" }
+  ]
 }

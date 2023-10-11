@@ -1,17 +1,16 @@
-import { SqlBool } from "kysely";
 import {
   ExpressionBuilder,
   ExpressionWrapper,
   expressionBuilder,
+  SqlBool,
 } from "kysely";
 import {
   Allow,
   ColumnUsageContext,
   Deny,
-  KyselyAclGuard,
+  KyselyAccessControlGuard,
   StatementType,
-  createAclPlugin,
-} from "kysely-acl";
+} from "kysely-access-control";
 
 type GrantWithoutWhereClause<
   KyselyDatabase,
@@ -44,10 +43,10 @@ const isGrantWithWhereClause = <
   grant: Grant<KyselyDatabase, TableName>
 ): grant is GrantWithWhereClause<KyselyDatabase, TableName> => "where" in grant;
 
-export const createSimpleAclPlugin = <KyselyDatabase>(
+export const createKyselyGrantGuard = <KyselyDatabase>(
   grants: Grant<KyselyDatabase, any>[]
 ) => {
-  const guards: KyselyAclGuard = {
+  const guard: KyselyAccessControlGuard = {
     table: (table, statementType) => {
       const allowGrants = grants.filter((grant) => {
         return (
@@ -167,5 +166,5 @@ export const createSimpleAclPlugin = <KyselyDatabase>(
     },
   };
 
-  return createAclPlugin(guards);
+  return guard;
 };

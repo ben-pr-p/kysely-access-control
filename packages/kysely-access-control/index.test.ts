@@ -1,7 +1,7 @@
 import { expect, test, describe, mock } from "bun:test";
 import {
-  KyselyAclGuard,
-  createAclPlugin,
+  KyselyAccessControlGuard,
+  createAccessControlPlugin,
   Allow,
   Deny,
   Omit,
@@ -79,16 +79,16 @@ const returnErrorOrUndefined = async (promise: Promise<unknown>) => {
   }
 };
 
-describe("kysely-acl", () => {
+describe("kysely-access-control", () => {
   test("should invoke guard for table", async () => {
     const tableMock = mock(() => Allow);
 
-    const guard: KyselyAclGuard = {
+    const guard: KyselyAccessControlGuard = {
       table: tableMock,
     };
 
     await db
-      .withPlugin(createAclPlugin(guard))
+      .withPlugin(createAccessControlPlugin(guard))
       .selectFrom("person")
       .select("person.id")
       .execute();
@@ -99,13 +99,13 @@ describe("kysely-acl", () => {
   test("should throw if table guard returns deny", async () => {
     const tableMock = mock(() => Deny);
 
-    const guard: KyselyAclGuard = {
+    const guard: KyselyAccessControlGuard = {
       table: tableMock,
     };
 
     const ex = await expectAndReturnError(
       db
-        .withPlugin(createAclPlugin(guard))
+        .withPlugin(createAccessControlPlugin(guard))
         .selectFrom("person")
         .select(["person.id"])
         .execute()
@@ -119,13 +119,13 @@ describe("kysely-acl", () => {
       action === StatementType.Update ? Deny : Allow
     );
 
-    const guard: KyselyAclGuard = {
+    const guard: KyselyAccessControlGuard = {
       table: tableMock,
     };
 
     const noEx = await returnErrorOrUndefined(
       db
-        .withPlugin(createAclPlugin(guard))
+        .withPlugin(createAccessControlPlugin(guard))
         .selectFrom("person")
         .select(["person.id"])
         .execute()
@@ -133,7 +133,7 @@ describe("kysely-acl", () => {
 
     const ex = await expectAndReturnError(
       db
-        .withPlugin(createAclPlugin(guard))
+        .withPlugin(createAccessControlPlugin(guard))
         .updateTable("person")
         .set({ first_name: "John" })
         .execute()
@@ -148,13 +148,13 @@ describe("kysely-acl", () => {
       action === StatementType.Insert ? Deny : Allow
     );
 
-    const guard: KyselyAclGuard = {
+    const guard: KyselyAccessControlGuard = {
       table: tableMock,
     };
 
     const noEx = await returnErrorOrUndefined(
       db
-        .withPlugin(createAclPlugin(guard))
+        .withPlugin(createAccessControlPlugin(guard))
         .selectFrom("person")
         .select(["person.id"])
         .execute()
@@ -162,7 +162,7 @@ describe("kysely-acl", () => {
 
     const ex = await expectAndReturnError(
       db
-        .withPlugin(createAclPlugin(guard))
+        .withPlugin(createAccessControlPlugin(guard))
         .insertInto("person")
         .values({ first_name: "John" })
         .execute()
@@ -177,20 +177,23 @@ describe("kysely-acl", () => {
       action === StatementType.Delete ? Deny : Allow
     );
 
-    const guard: KyselyAclGuard = {
+    const guard: KyselyAccessControlGuard = {
       table: tableMock,
     };
 
     const noEx = await returnErrorOrUndefined(
       db
-        .withPlugin(createAclPlugin(guard))
+        .withPlugin(createAccessControlPlugin(guard))
         .selectFrom("person")
         .select("person.id")
         .execute()
     );
 
     const ex = await expectAndReturnError(
-      db.withPlugin(createAclPlugin(guard)).deleteFrom("person").execute()
+      db
+        .withPlugin(createAccessControlPlugin(guard))
+        .deleteFrom("person")
+        .execute()
     );
 
     expect(noEx).toBeUndefined();
@@ -198,13 +201,13 @@ describe("kysely-acl", () => {
   });
 
   test("column selections should throw on deny", async () => {
-    const guard: KyselyAclGuard = {
+    const guard: KyselyAccessControlGuard = {
       column: (table, column) => (column.name === "last_name" ? Deny : Allow),
     };
 
     const ex = await expectAndReturnError(
       db
-        .withPlugin(createAclPlugin(guard))
+        .withPlugin(createAccessControlPlugin(guard))
         .selectFrom("person")
         .innerJoin("rsvp", "rsvp.person_id", "person.id")
         .select(["person.first_name", "person.last_name"])
@@ -215,12 +218,12 @@ describe("kysely-acl", () => {
   });
 
   test("column selections should be omitted on omit for select", async () => {
-    const guard: KyselyAclGuard = {
+    const guard: KyselyAccessControlGuard = {
       column: (table, column) => (column.name === "last_name" ? Omit : Allow),
     };
 
     const compiledQuery = db
-      .withPlugin(createAclPlugin(guard))
+      .withPlugin(createAccessControlPlugin(guard))
       .selectFrom("person")
       .select(["person.first_name", "person.last_name"])
       .compile();
@@ -232,19 +235,19 @@ describe("kysely-acl", () => {
   });
 
   test("column selections should be omitted on omit for insert/update returning", async () => {
-    const guard: KyselyAclGuard = {
+    const guard: KyselyAccessControlGuard = {
       column: (table, column) => (column.name === "last_name" ? Omit : Allow),
     };
 
     const compiledInsert = db
-      .withPlugin(createAclPlugin(guard))
+      .withPlugin(createAccessControlPlugin(guard))
       .insertInto("person")
       .values({ first_name: "Ben" })
       .returning(["person.first_name", "person.last_name"])
       .compile();
 
     const compiledUpdate = db
-      .withPlugin(createAclPlugin(guard))
+      .withPlugin(createAccessControlPlugin(guard))
       .updateTable("person")
       .set({ first_name: "Ben" })
       .returning(["person.first_name", "person.last_name"])
@@ -261,7 +264,7 @@ describe("kysely-acl", () => {
   });
 
   test("can separately control table usage in join vs. top level select", async () => {
-    const joinAllowedGuard: KyselyAclGuard<Database> = {
+    const joinAllowedGuard: KyselyAccessControlGuard<Database> = {
       table: (table, _statementType, tableUsageContext) => {
         if (table.identifier.name === "rsvp") {
           if (tableUsageContext === TableUsageContext.TableInJoin) {
@@ -273,7 +276,7 @@ describe("kysely-acl", () => {
       },
     };
 
-    const joinDisallowedGuard: KyselyAclGuard<Database> = {
+    const joinDisallowedGuard: KyselyAccessControlGuard<Database> = {
       table: (table, _statementType, tableUsageContext) => {
         if (table.identifier.name === "rsvp") {
           if (tableUsageContext === TableUsageContext.TableInJoin) {
@@ -287,7 +290,7 @@ describe("kysely-acl", () => {
 
     const topLevelRsvp = await expectAndReturnError(
       db
-        .withPlugin(createAclPlugin(joinAllowedGuard))
+        .withPlugin(createAccessControlPlugin(joinAllowedGuard))
         .selectFrom("rsvp")
         .select(["rsvp.id"])
         .execute()
@@ -295,7 +298,7 @@ describe("kysely-acl", () => {
 
     const usageInJoin = await returnErrorOrUndefined(
       db
-        .withPlugin(createAclPlugin(joinAllowedGuard))
+        .withPlugin(createAccessControlPlugin(joinAllowedGuard))
         .selectFrom("person")
         .innerJoin("rsvp", "rsvp.person_id", "person.id")
         .select(["person.id"])
@@ -304,7 +307,7 @@ describe("kysely-acl", () => {
 
     const usageInJoinDisallowed = await expectAndReturnError(
       db
-        .withPlugin(createAclPlugin(joinDisallowedGuard))
+        .withPlugin(createAccessControlPlugin(joinDisallowedGuard))
         .selectFrom("person")
         .innerJoin("rsvp", "rsvp.person_id", "person.id")
         .select(["person.id"])
@@ -317,7 +320,7 @@ describe("kysely-acl", () => {
   });
 
   test("can separately control column usage in filter vs select", async () => {
-    const filterAllowedAndSelectDisallowedGuard = createAclPlugin({
+    const filterAllowedAndSelectDisallowedGuard = createAccessControlPlugin({
       column: (_table, column, _statementType, columnUsageContext) => {
         if (column.name === "last_name") {
           if (columnUsageContext === ColumnUsageContext.ColumnInWhereOrJoin) {
@@ -329,7 +332,7 @@ describe("kysely-acl", () => {
       },
     });
 
-    const filterDisallowedAndSelectAllowedGuard = createAclPlugin({
+    const filterDisallowedAndSelectAllowedGuard = createAccessControlPlugin({
       column: (_table, column, _statementType, columnUsageContext) => {
         if (column.name === "last_name") {
           if (columnUsageContext === ColumnUsageContext.ColumnInWhereOrJoin) {
@@ -386,7 +389,7 @@ describe("kysely-acl", () => {
   });
 
   test("can separately control column usage in join vs select", async () => {
-    const joinAllowedAndSelectDisallowedGuard = createAclPlugin({
+    const joinAllowedAndSelectDisallowedGuard = createAccessControlPlugin({
       column: (_table, column, _statementType, columnUsageContext) => {
         if (column.name === "id") {
           if (columnUsageContext === ColumnUsageContext.ColumnInWhereOrJoin) {
@@ -398,7 +401,7 @@ describe("kysely-acl", () => {
       },
     });
 
-    const joinDisallowedAndSelectAllowedGuard = createAclPlugin({
+    const joinDisallowedAndSelectAllowedGuard = createAccessControlPlugin({
       column: (_table, column, _statementType, columnUsageContext) => {
         if (column.name === "id") {
           if (columnUsageContext === ColumnUsageContext.ColumnInWhereOrJoin) {
@@ -455,7 +458,7 @@ describe("kysely-acl", () => {
   });
 
   test("can separately control column usage in set vs select", async () => {
-    const updateAllowedAndSelectDisallowedGuard = createAclPlugin({
+    const updateAllowedAndSelectDisallowedGuard = createAccessControlPlugin({
       column: (_table, column, _statementType, columnUsageContext) => {
         if (column.name === "first_name") {
           if (columnUsageContext === ColumnUsageContext.ColumnInUpdateSet) {
@@ -467,7 +470,7 @@ describe("kysely-acl", () => {
       },
     });
 
-    const updateDisallowedAndSelectAllowedGuard = createAclPlugin({
+    const updateDisallowedAndSelectAllowedGuard = createAccessControlPlugin({
       column: (_table, column, _statementType, columnUsageContext) => {
         if (column.name === "first_name") {
           if (columnUsageContext === ColumnUsageContext.ColumnInUpdateSet) {
@@ -525,7 +528,7 @@ describe("kysely-acl", () => {
 
   test("can enforce RLS on joined tables in select/insert/update/delete", async () => {
     // RLS policy so only people with first_name Ben can be selected
-    const guard: KyselyAclGuard<Database> = {
+    const guard: KyselyAccessControlGuard<Database> = {
       table: (table, _statementType, tableUsageContext) => {
         if (table.identifier.name === "person") {
           return [
@@ -543,7 +546,7 @@ describe("kysely-acl", () => {
 
     // Compiled a join from events to people
     const compiledSelect = db
-      .withPlugin(createAclPlugin(guard))
+      .withPlugin(createAccessControlPlugin(guard))
       .selectFrom("event")
       .innerJoin("rsvp", "rsvp.event_id", "event.id")
       .innerJoin("person", "person.id", "rsvp.person_id")
@@ -555,7 +558,7 @@ describe("kysely-acl", () => {
     );
 
     const compiledUpdate = db
-      .withPlugin(createAclPlugin(guard))
+      .withPlugin(createAccessControlPlugin(guard))
       .updateTable("rsvp")
       .from("person")
       .set({ attended: true })
@@ -567,7 +570,7 @@ describe("kysely-acl", () => {
     );
 
     const compiledDelete = db
-      .withPlugin(createAclPlugin(guard))
+      .withPlugin(createAccessControlPlugin(guard))
       .deleteFrom("rsvp")
       .using("person")
       .whereRef("rsvp.person_id", "=", "person.id")

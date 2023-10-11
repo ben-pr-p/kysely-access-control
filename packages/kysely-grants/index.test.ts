@@ -1,5 +1,6 @@
 import { expect, test, describe } from "bun:test";
-import { Grant, createSimpleAclPlugin } from ".";
+import { createAccessControlPlugin } from "kysely-access-control";
+import { Grant, createKyselyGrantGuard } from ".";
 import {
   Generated,
   DummyDriver,
@@ -68,9 +69,13 @@ const returnErrorOrUndefined = async (promise: Promise<unknown>) => {
   }
 };
 
-describe("kysely-acl-grants", () => {
+const createPlugin = (grants: Grant<Database, any>[]) => {
+  return createAccessControlPlugin(createKyselyGrantGuard(grants));
+};
+
+describe("kysely-grants", () => {
   test("simple allow", async () => {
-    const plugin = createSimpleAclPlugin([
+    const plugin = createPlugin([
       {
         table: "person",
         for: "select",
@@ -89,7 +94,7 @@ describe("kysely-acl-grants", () => {
   test("should throw if no grant exists for table", async () => {
     await expectAndReturnError(
       db
-        .withPlugin(createSimpleAclPlugin([]))
+        .withPlugin(createPlugin([]))
         .selectFrom("person")
         .select("id")
         .execute()
@@ -100,7 +105,7 @@ describe("kysely-acl-grants", () => {
     const ex = await expectAndReturnError(
       db
         .withPlugin(
-          createSimpleAclPlugin([
+          createPlugin([
             {
               table: "person",
               for: "select",
@@ -117,7 +122,7 @@ describe("kysely-acl-grants", () => {
   });
 
   test("all should allow all columns", async () => {
-    const plugin = createSimpleAclPlugin([
+    const plugin = createPlugin([
       {
         table: "person",
         for: "select",
@@ -136,7 +141,7 @@ describe("kysely-acl-grants", () => {
   });
 
   test("column grant sets are union-ed", async () => {
-    const plugin = createSimpleAclPlugin([
+    const plugin = createPlugin([
       {
         table: "person",
         for: "select",
@@ -161,7 +166,7 @@ describe("kysely-acl-grants", () => {
   });
 
   test("select does not imply insert", async () => {
-    const plugin = createSimpleAclPlugin([
+    const plugin = createPlugin([
       {
         table: "person",
         for: "select",
@@ -181,7 +186,7 @@ describe("kysely-acl-grants", () => {
   });
 
   test("select on a column does not imply ability to insert that column", async () => {
-    const plugin = createSimpleAclPlugin([
+    const plugin = createPlugin([
       {
         table: "person",
         for: "select",
@@ -206,7 +211,7 @@ describe("kysely-acl-grants", () => {
   });
 
   test("select on a column does enables/disables returning", async () => {
-    const plugin = createSimpleAclPlugin([
+    const plugin = createPlugin([
       {
         table: "person",
         for: "select",
@@ -242,7 +247,7 @@ describe("kysely-acl-grants", () => {
   });
 
   test("can return a column without update (set) permissions", async () => {
-    const plugin = createSimpleAclPlugin([
+    const plugin = createPlugin([
       {
         table: "person",
         for: "select",
@@ -285,7 +290,7 @@ describe("kysely-acl-grants", () => {
       where: (eb) => eb("person.first_name", "=", "Ben"),
     };
 
-    const plugin = createSimpleAclPlugin([grant]);
+    const plugin = createPlugin([grant]);
 
     const { sql } = db
       .withPlugin(plugin)
@@ -306,7 +311,7 @@ describe("kysely-acl-grants", () => {
       where: (eb) => eb("person.first_name", "=", "Ben"),
     };
 
-    const plugin = createSimpleAclPlugin([grant]);
+    const plugin = createPlugin([grant]);
 
     const { sql } = db
       .withPlugin(plugin)
@@ -343,7 +348,7 @@ describe("kysely-acl-grants", () => {
       whereType: "restrictive",
     };
 
-    const plugin = createSimpleAclPlugin([grant1, grant2, grant3]);
+    const plugin = createPlugin([grant1, grant2, grant3]);
 
     const { sql } = db
       .withPlugin(plugin)

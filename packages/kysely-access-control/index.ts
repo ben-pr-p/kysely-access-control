@@ -69,6 +69,7 @@ type TableNodeTableIdentifierWithNamesAsKeyOf<KyselyDatabase> = Omit<
   TableNodeTable["identifier"],
   "name"
 > & { name: keyof KyselyDatabase };
+
 type TableNodeTableWithKeyOf<KyselyDatabase> = Omit<
   TableNodeTable,
   "identifier"
@@ -87,8 +88,7 @@ export const throwIfDenyWithReason = (
   }
 };
 
-// TODO - table ColumnNode identifier with deep replace for Table name
-type FullKyselyAclGuard<KyselyDatabase = unknown> = {
+type FullKyselyAccessControlGuard<KyselyDatabase = unknown> = {
   table: (
     table: TableNodeTableWithKeyOf<KyselyDatabase>,
     statementType: StatementType,
@@ -103,8 +103,8 @@ type FullKyselyAclGuard<KyselyDatabase = unknown> = {
   ) => ColumnGuardResult;
 };
 
-export type KyselyAclGuard<KyselyDatabase = unknown> = Partial<
-  FullKyselyAclGuard<KyselyDatabase>
+export type KyselyAccessControlGuard<KyselyDatabase = unknown> = Partial<
+  FullKyselyAccessControlGuard<KyselyDatabase>
 >;
 
 type UnrestrictedInternalKyselyDatabase = Record<
@@ -112,22 +112,23 @@ type UnrestrictedInternalKyselyDatabase = Record<
   Record<string, string>
 >;
 
-export const createAclPlugin = <KyselyDatabase = unknown>(
-  guard: KyselyAclGuard<KyselyDatabase>
+export const createAccessControlPlugin = <KyselyDatabase = unknown>(
+  guard: KyselyAccessControlGuard<KyselyDatabase>
 ): KyselyPlugin => {
   // 2 things are accomplished in this translation into fullGuard
   // 1. Default guards are provided if the user does not provide either .table or .column
   // 2. We lose table and column keyof typings so that we can safely call these guards internally
   //    without extra coercion
-  const fullGuard: FullKyselyAclGuard<UnrestrictedInternalKyselyDatabase> = {
-    table: () => {
-      return Allow;
-    },
-    column: () => {
-      return Allow;
-    },
-    ...(guard as KyselyAclGuard<UnrestrictedInternalKyselyDatabase>),
-  };
+  const fullGuard: FullKyselyAccessControlGuard<UnrestrictedInternalKyselyDatabase> =
+    {
+      table: () => {
+        return Allow;
+      },
+      column: () => {
+        return Allow;
+      },
+      ...(guard as KyselyAccessControlGuard<UnrestrictedInternalKyselyDatabase>),
+    };
 
   type OperationNodeWithIs = {
     is: (node: OperationNode) => boolean;
@@ -152,7 +153,7 @@ export const createAclPlugin = <KyselyDatabase = unknown>(
 
       invariant(
         TableNode.is(tableNode),
-        "kysely-acl: only table nodes are supported for update queries"
+        "kysely-access-control: only table nodes are supported for update queries"
       );
 
       const guardResult = fullGuard.table(
@@ -278,7 +279,7 @@ export const createAclPlugin = <KyselyDatabase = unknown>(
 
       invariant(
         mode !== undefined,
-        `kysely-acl: returning must be used with insert, update, or delete. kind was ${parentNode.kind}`
+        `kysely-access-control: returning must be used with insert, update, or delete. kind was ${parentNode.kind}`
       );
 
       const { selections } = node;
@@ -294,12 +295,12 @@ export const createAclPlugin = <KyselyDatabase = unknown>(
       // Only inserting into a table is supported
       invariant(
         statementType !== undefined,
-        "kysely-acl: currently only insert/update/delete returning is supported"
+        "kysely-access-control: currently only insert/update/delete returning is supported"
       );
 
       invariant(
         TableNode.is(tableNode),
-        "kysely-acl: currently only update/delete from a table"
+        "kysely-access-control: currently only update/delete from a table"
       );
 
       const transformedSelections = this._transformSelections(
@@ -325,14 +326,14 @@ export const createAclPlugin = <KyselyDatabase = unknown>(
       // Ensure only 1 from and that its a table
       invariant(
         node.from.froms.length === 1,
-        "kysely-acl: can only delete from one table at a time"
+        "kysely-access-control: can only delete from one table at a time"
       );
 
       const tableNode = node.from.froms[0];
 
       invariant(
         TableNode.is(tableNode),
-        "kysely-acl: can only delete from tables"
+        "kysely-access-control: can only delete from tables"
       );
 
       const guardResult = fullGuard.table(
@@ -368,19 +369,19 @@ export const createAclPlugin = <KyselyDatabase = unknown>(
 
       invariant(
         fromNode.froms.length === 1,
-        "kysely-acl: there must be exactly one from node when not joining"
+        "kysely-access-control: there must be exactly one from node when not joining"
       );
 
       const tableNode = fromNode.froms[0];
 
       invariant(
         TableNode.is(tableNode),
-        "kysely-acl: currently only select from table/view is supported"
+        "kysely-access-control: currently only select from table/view is supported"
       );
 
       invariant(
         selections !== undefined,
-        "kysely-acl: selections should be defined"
+        "kysely-access-control: selections should be defined"
       );
 
       const table = tableNode.table;
@@ -615,7 +616,7 @@ export const createAclPlugin = <KyselyDatabase = unknown>(
         // It can't be inferred
         if (!isAChildOfWhere) {
           throw new Error(
-            "kysely-acl: could not find table node for column reference in join"
+            "kysely-access-control: could not find table node for column reference in join"
           );
         }
 
@@ -629,13 +630,13 @@ export const createAclPlugin = <KyselyDatabase = unknown>(
 
         invariant(
           parentOfWhere !== undefined,
-          "kysely-acl: could not find parent of where node"
+          "kysely-access-control: could not find parent of where node"
         );
 
         const hasJoins = this._topLevelHasMoreThanOneTable(parentOfWhere);
         if (hasJoins) {
           throw new Error(
-            "kysely-acl: if joins are present, each column reference in where must specify the table"
+            "kysely-access-control: if joins are present, each column reference in where must specify the table"
           );
         }
 
@@ -644,12 +645,12 @@ export const createAclPlugin = <KyselyDatabase = unknown>(
 
         invariant(
           foundTableNode !== undefined,
-          "kysely-acl: could not find table node for column reference in filter statement"
+          "kysely-access-control: could not find table node for column reference in filter statement"
         );
 
         invariant(
           TableNode.is(foundTableNode),
-          "kysely-acl: node for column reference in filter statement must be a table node"
+          "kysely-access-control: node for column reference in filter statement must be a table node"
         );
 
         tableNode = foundTableNode;
@@ -661,7 +662,7 @@ export const createAclPlugin = <KyselyDatabase = unknown>(
 
       invariant(
         ColumnNode.is(columnNode),
-        "kysely-acl: select all in filter statement is not supported"
+        "kysely-access-control: select all in filter statement is not supported"
       );
 
       const guardResult = fullGuard.column(
@@ -726,7 +727,7 @@ export const createAclPlugin = <KyselyDatabase = unknown>(
       if (UpdateQueryNode.is(node)) {
         invariant(
           node.table !== undefined && TableNode.is(node.table),
-          "kysely-acl: update query must have a table"
+          "kysely-access-control: update query must have a table"
         );
 
         return node.table;
@@ -735,12 +736,12 @@ export const createAclPlugin = <KyselyDatabase = unknown>(
       if (SelectQueryNode.is(node)) {
         invariant(
           node.from !== undefined && node.from.froms.length === 1,
-          "kysely-acl: select query must have exactly one from"
+          "kysely-access-control: select query must have exactly one from"
         );
 
         invariant(
           TableNode.is(node.from.froms[0]),
-          "kysely-acl: select query must have a table"
+          "kysely-access-control: select query must have a table"
         );
 
         return node.from.froms[0];
@@ -749,12 +750,12 @@ export const createAclPlugin = <KyselyDatabase = unknown>(
       if (DeleteQueryNode.is(node)) {
         invariant(
           node.from !== undefined && node.from.froms.length === 1,
-          "kysely-acl: delete query must have exactly one from"
+          "kysely-access-control: delete query must have exactly one from"
         );
 
         invariant(
           TableNode.is(node.from.froms[0]),
-          "kysely-acl: delete query must have a table"
+          "kysely-access-control: delete query must have a table"
         );
 
         return node.from.froms[0];
@@ -763,7 +764,7 @@ export const createAclPlugin = <KyselyDatabase = unknown>(
       if (InsertQueryNode.is(node)) {
         invariant(
           TableNode.is(node.into),
-          "kysely-acl: insert query must have a table"
+          "kysely-access-control: insert query must have a table"
         );
 
         return node.into;
@@ -803,7 +804,7 @@ export const createAclPlugin = <KyselyDatabase = unknown>(
         // TODO - allow selectAll if it's not top level
         invariant(
           ReferenceNode.is(selection),
-          "kysely-acl: selection must be a reference node"
+          "kysely-access-control: selection must be a reference node"
         );
 
         const { table: columnIncludedTableNode, column: columnNode } =
@@ -811,7 +812,7 @@ export const createAclPlugin = <KyselyDatabase = unknown>(
 
         invariant(
           columnNode.kind !== "SelectAllNode",
-          "kysely-acl: .selectAll() is not supported"
+          "kysely-access-control: .selectAll() is not supported"
         );
 
         let tableNodeToUseForColumn: TableNode = tableNode;
@@ -819,7 +820,7 @@ export const createAclPlugin = <KyselyDatabase = unknown>(
         if (scopedHasMoreThanOneTable) {
           invariant(
             columnIncludedTableNode !== undefined,
-            `kysely-acl: table must be specified for each column when joining - could not infer table for ${columnNode.column.name}`
+            `kysely-access-control: table must be specified for each column when joining - could not infer table for ${columnNode.column.name}`
           );
 
           tableNodeToUseForColumn = columnIncludedTableNode;
@@ -868,7 +869,7 @@ export const createAclPlugin = <KyselyDatabase = unknown>(
         guardWhereUnguarded !== undefined &&
           typeof guardWhereUnguarded === "object" &&
           "toOperationNode" in guardWhereUnguarded,
-        "kysely-acl: returned where must be an expression wrapper"
+        "kysely-access-control: returned where must be an expression wrapper"
       );
 
       const guardWhere = WhereNode.create(
