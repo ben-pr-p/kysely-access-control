@@ -10,7 +10,7 @@ import {
   Deny,
   KyselyAccessControlGuard,
   StatementType,
-} from "kysely-access-control";
+} from "./kyselyAccessControl";
 
 type GrantWithoutWhereClause<
   KyselyDatabase,

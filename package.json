@@ -1,7 +1,10 @@
 {
-  "name": "kysely-utils",
+  "name": "kysely-access-control",
   "module": "index.ts",
-  "type": "module",
+  "version": "0.0.5",
+  "scripts": {
+    "compile": "tsc -p tsconfig.build.json"
+  },
   "devDependencies": {
     "bun-types": "latest",
     "typescript": "^5.2.2"
@@ -10,7 +13,20 @@
     "typescript": "^5.0.0",
     "kysely": "^0.26.3"
   },
-  "workspaces": [
-    "packages/*"
-  ]
+  "dependencies": {
+    "tiny-invariant": "^1.3.1"
+  },
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:ben-pr-p/kysely-access-control.git"
+  },
+  "author": "Ben Packer <ben.paul.ryan.packer@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ben-pr-p/kysely-access-control/issues"
+  },
+  "homepage": "https://github.com/ben-pr-p/kysely-access-control"
 }

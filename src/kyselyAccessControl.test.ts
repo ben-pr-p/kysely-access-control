@@ -8,7 +8,7 @@ import {
   StatementType,
   TableUsageContext,
   ColumnUsageContext,
-} from ".";
+} from "./kyselyAccessControl";
 
 import {
   Generated,

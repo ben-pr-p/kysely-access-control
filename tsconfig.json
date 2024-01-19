@@ -17,10 +17,6 @@
     "allowJs": true,
     "types": [
       "bun-types" // add Bun global
-    ],
-    "paths": {
-      "*": ["packages/*/src/*"]
-    }
-  },
-  "include": ["packages/**/*"],
+    ]
+  }
 }

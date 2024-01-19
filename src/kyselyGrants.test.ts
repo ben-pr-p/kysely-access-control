@@ -1,6 +1,6 @@
 import { expect, test, describe } from "bun:test";
-import { createAccessControlPlugin } from "kysely-access-control";
-import { Grant, createKyselyGrantGuard } from ".";
+import { createAccessControlPlugin } from "./kyselyAccessControl";
+import { Grant, createKyselyGrantGuard } from "./kyselyGrants";
 import {
   Generated,
   DummyDriver,
