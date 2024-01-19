@@ -29,10 +29,10 @@ can makes more sense than in *the database* itself:
 Construct a `Grant` with the following type, like:
 ```typescript
 type Grant = {
-	on: Table;
-	for: 'select' | 'insert' | 'update' | 'delete' | 'all'
-	columns?: string[] // all columns are allowed if blank
-	where?: (
+  on: Table;
+  for: 'select' | 'insert' | 'update' | 'delete' | 'all'
+  columns?: string[] // all columns are allowed if blank
+  where?: (
     eb: ExpressionBuilder<KyselyDatabase, TableName>
   ) => ExpressionWrapper<KyselyDatabase, TableName, SqlBool>;
   whereType?: "permissive" | "restrictive";
@@ -47,39 +47,39 @@ You can check a list of grants into your codebase, like:
 import { createKyselyGrantGuard, createAccessControlPlugin } from 'kysely-access-control'
 
 const getSharedGrants = (currentUserId) => [
-	{
-		on: 'posts',
-		for: 'select'
-	},
-	{
-		on: 'comments',
-		for: 'select'
-	},
-	{
-		on: 'posts',
-		for: 'all',
-		where: (eb) => eb.eq('author_id', currentUserId)
-	},
-	{
-		on: 'comments',
-		for: 'all',
-		where: (eb) => eb.eq('author_id', currentUserId)
-	}
+  {
+    on: 'posts',
+    for: 'select'
+  },
+  {
+    on: 'comments',
+    for: 'select'
+  },
+  {
+    on: 'posts',
+    for: 'all',
+    where: (eb) => eb.eq('author_id', currentUserId)
+  },
+  {
+    on: 'comments',
+    for: 'all',
+    where: (eb) => eb.eq('author_id', currentUserId)
+  }
 ]
 
 const adminGrants = [
-	{
-		on: 'accounts',
-		for: 'all',
-	}
+  {
+    on: 'accounts',
+    for: 'all',
+  }
 ]
 
 const query = (userId, isAdmin) => {
-	return db.withPlugin(createAccessControlPlugin(
-		createKyselyGrantGuard(
-			getSharedGrants(userId).concat(isAdmin ? adminGrants : [])
-		)
-	)
+  return db.withPlugin(createAccessControlPlugin(
+    createKyselyGrantGuard(
+      getSharedGrants(userId).concat(isAdmin ? adminGrants : [])
+    )
+  )
 }
 
 // in some api.ts
