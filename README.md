@@ -1,5 +1,3 @@
-# kysely-utils
-
 This package contains some utilities for implementing a permission system on top of the 
 [Kysely](https://github.com/koskimas/kysely) query builder.
 
