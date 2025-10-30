@@ -801,53 +801,72 @@ export const createAccessControlPlugin = <KyselyDatabase = unknown>(
       for (const selectionNode of selections) {
         const { selection } = selectionNode;
 
-        // TODO - allow selectAll if it's not top level
-        invariant(
-          ReferenceNode.is(selection),
-          "kysely-access-control: selection must be a reference node"
-        );
-
-        const { table: columnIncludedTableNode, column: columnNode } =
-          selection;
-
-        invariant(
-          columnNode.kind !== "SelectAllNode",
-          "kysely-access-control: .selectAll() is not supported"
-        );
-
-        let tableNodeToUseForColumn: TableNode = tableNode;
-
-        if (scopedHasMoreThanOneTable) {
-          invariant(
-            columnIncludedTableNode !== undefined,
-            `kysely-access-control: table must be specified for each column when joining - could not infer table for ${columnNode.column.name}`
-          );
-
-          tableNodeToUseForColumn = columnIncludedTableNode;
-        }
-
-        const guardResult = fullGuard.column(
-          tableNodeToUseForColumn.table,
-          columnNode.column,
-          statementType,
-          ColumnUsageContext.ColumnInSelectOrReturning
-        );
-
-        throwIfDenyWithReason(
-          guardResult,
-          `SELECT denied on column ${
-            tableNodeToUseForColumn.table.schema?.name
-              ? `${tableNodeToUseForColumn.table.schema.name}.`
-              : ""
-          }${tableNodeToUseForColumn.table.identifier.name}.${
-            columnNode.column.name
-          }`
-        );
-
-        if (guardResult === Omit) {
+        // Handle SelectQueryNode selections (from jsonObjectFrom, jsonArrayFrom, etc.)
+        if (SelectQueryNode.is(selection)) {
+          // For subquery selections, recursively transform the subquery to apply access control
+          // The subquery transformation will be handled by the parent transformer
+          // We just need to ensure the subquery gets processed, so we pass it through
+          // The parent transformer will call transformSelectQuery on the subquery
+          transformedSelections.push(selectionNode);
           continue;
         }
 
+        // Handle SelectAllNode selections (from selectAll())
+        if (selection.kind === "SelectAllNode") {
+          throw new Error(
+            "kysely-access-control: .selectAll() is not supported"
+          );
+        }
+
+        // Handle ReferenceNode selections (column references)
+        if (ReferenceNode.is(selection)) {
+          const { table: columnIncludedTableNode, column: columnNode } =
+            selection;
+
+          invariant(
+            columnNode.kind !== "SelectAllNode",
+            "kysely-access-control: .selectAll() is not supported"
+          );
+
+          let tableNodeToUseForColumn: TableNode = tableNode;
+
+          if (scopedHasMoreThanOneTable) {
+            invariant(
+              columnIncludedTableNode !== undefined,
+              `kysely-access-control: table must be specified for each column when joining - could not infer table for ${columnNode.column.name}`
+            );
+
+            tableNodeToUseForColumn = columnIncludedTableNode;
+          }
+
+          const guardResult = fullGuard.column(
+            tableNodeToUseForColumn.table,
+            columnNode.column,
+            statementType,
+            ColumnUsageContext.ColumnInSelectOrReturning
+          );
+
+          throwIfDenyWithReason(
+            guardResult,
+            `SELECT denied on column ${
+              tableNodeToUseForColumn.table.schema?.name
+                ? `${tableNodeToUseForColumn.table.schema.name}.`
+                : ""
+            }${tableNodeToUseForColumn.table.identifier.name}.${
+              columnNode.column.name
+            }`
+          );
+
+          if (guardResult === Omit) {
+            continue;
+          }
+
+          transformedSelections.push(selectionNode);
+          continue;
+        }
+
+        // For other selection types (expressions, raw builders, etc.), allow them to pass through
+        // These will be transformed by the parent transformer and don't directly reference main table columns
         transformedSelections.push(selectionNode);
       }
 

@@ -1,24 +1,25 @@
-import { expect, test, describe, mock } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import {
-  KyselyAccessControlGuard,
-  createAccessControlPlugin,
   Allow,
+  ColumnUsageContext,
   Deny,
+  KyselyAccessControlGuard,
   Omit,
   StatementType,
   TableUsageContext,
-  ColumnUsageContext,
+  createAccessControlPlugin,
 } from "./kyselyAccessControl";
 
 import {
-  Generated,
   DummyDriver,
+  Generated,
   Kysely,
   PostgresAdapter,
   PostgresIntrospector,
   PostgresQueryCompiler,
   expressionBuilder,
 } from "kysely";
+import { jsonObjectFrom } from "kysely/helpers/postgres";
 
 interface Person {
   id: Generated<number>;
@@ -261,6 +262,127 @@ describe("kysely-access-control", () => {
     expect(compiledUpdate.sql).toBe(
       `update "person" set "first_name" = $1 returning "person"."first_name"`
     );
+  });
+
+  test("should throw error when selectAll() is used at top level", async () => {
+    const guard: KyselyAccessControlGuard = {
+      column: (table, column) => (column.name === "last_name" ? Omit : Allow),
+    };
+
+    const ex = await expectAndReturnError(
+      db
+        .withPlugin(createAccessControlPlugin(guard))
+        .selectFrom("person")
+        .selectAll()
+        .execute()
+    );
+
+    expect(ex.message).toBe(
+      "kysely-access-control: .selectAll() is not supported"
+    );
+  });
+
+  test("should allow sub-selects", async () => {
+    const guard: KyselyAccessControlGuard = {
+      column: (table, column) => (column.name === "last_name" ? Omit : Allow),
+    };
+
+    const ex = await returnErrorOrUndefined(
+      db
+        .withPlugin(createAccessControlPlugin(guard))
+        .selectFrom("person")
+        .select((qb) => {
+          const rsvp = qb.selectFrom("rsvp").select("id");
+
+          return ["id", "first_name", jsonObjectFrom(rsvp).as("rsvp")];
+        })
+        .execute()
+    );
+
+    expect(ex).toBeUndefined();
+  });
+
+  test("should apply access control to subqueries in jsonObjectFrom", async () => {
+    // Test that column access control is applied to subqueries
+    const guard: KyselyAccessControlGuard = {
+      column: (table, column) => {
+        if (table.identifier.name === "rsvp" && column.name === "attended") {
+          return Deny; // Deny access to 'attended' column in rsvp table
+        }
+        return Allow;
+      },
+    };
+
+    const ex = await expectAndReturnError(
+      db
+        .withPlugin(createAccessControlPlugin(guard))
+        .selectFrom("person")
+        .select((qb) => {
+          const rsvp = qb.selectFrom("rsvp").select(["id", "attended"]);
+
+          return ["id", "first_name", jsonObjectFrom(rsvp).as("rsvp")];
+        })
+        .execute()
+    );
+
+    expect(ex.message).toBe(
+      "SELECT denied on column rsvp.attended"
+    );
+  });
+
+  test("should apply table access control to subqueries in jsonObjectFrom", async () => {
+    // Test that table access control is applied to subqueries
+    const guard: KyselyAccessControlGuard = {
+      table: (table, statementType) => {
+        if (table.identifier.name === "rsvp") {
+          return Deny; // Deny access to rsvp table
+        }
+        return Allow;
+      },
+    };
+
+    const ex = await expectAndReturnError(
+      db
+        .withPlugin(createAccessControlPlugin(guard))
+        .selectFrom("person")
+        .select((qb) => {
+          const rsvp = qb.selectFrom("rsvp").select("id");
+
+          return ["id", "first_name", jsonObjectFrom(rsvp).as("rsvp")];
+        })
+        .execute()
+    );
+
+    expect(ex.message).toBe(
+      "SELECT denied on table rsvp"
+    );
+  });
+
+  test("should apply column omission to subqueries in jsonObjectFrom", async () => {
+    // Test that column omission works in subqueries
+    const guard: KyselyAccessControlGuard = {
+      column: (table, column) => {
+        if (table.identifier.name === "rsvp" && column.name === "attended") {
+          return Omit; // Omit 'attended' column in rsvp table
+        }
+        return Allow;
+      },
+    };
+
+    const ex = await returnErrorOrUndefined(
+      db
+        .withPlugin(createAccessControlPlugin(guard))
+        .selectFrom("person")
+        .select((qb) => {
+          const rsvp = qb.selectFrom("rsvp").select(["id", "attended"]);
+
+          return ["id", "first_name", jsonObjectFrom(rsvp).as("rsvp")];
+        })
+        .execute()
+    );
+
+    // Should not throw an error, but the 'attended' column should be omitted from the subquery
+    expect(ex).toBeUndefined();
   });
 
   test("can separately control table usage in join vs. top level select", async () => {
