@@ -198,8 +198,13 @@ export const createAccessControlPlugin = <KyselyDatabase = unknown>(
         }
       }
 
-      // Must be allow
-      return super.transformUpdateQuery(node);
+      // Apply RLS filter from grants to WHERE clause
+      const newNode = {
+        ...node,
+        where: this._transformWhere(guardResult, node.where),
+      };
+
+      return super.transformUpdateQuery(newNode);
     }
 
     /**
