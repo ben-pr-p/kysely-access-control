@@ -1,14 +1,15 @@
-import { expect, test, describe } from "bun:test";
-import { createAccessControlPlugin } from "./kyselyAccessControl";
-import { Grant, createKyselyGrantGuard } from "./kyselyGrants";
+import { describe, expect, test } from "bun:test";
 import {
-  Generated,
   DummyDriver,
+  Generated,
   Kysely,
   PostgresAdapter,
   PostgresIntrospector,
   PostgresQueryCompiler,
 } from "kysely";
+import { jsonArrayFrom } from "kysely/helpers/postgres";
+import { createAccessControlPlugin } from "./kyselyAccessControl";
+import { Grant, createKyselyGrantGuard } from "./kyselyGrants";
 
 interface Person {
   id: Generated<number>;
@@ -360,5 +361,39 @@ describe("kysely-grants", () => {
     expect(sql).toEqual(
       `select "id", "first_name", "last_name" from "person" where (("person"."first_name" = $1 or "person"."first_name" = $2) and "person"."last_name" = $3) and "person"."id" > $4`
     );
+  });
+
+  test("subqueries with aliases should not throw errors", async () => {
+    const plugin = createPlugin([
+      {
+        table: "person",
+        for: "select",
+      },
+      {
+        table: "rsvp",
+        for: "select",
+      },
+    ]);
+
+    const ex = await expectAndReturnError(
+      db
+        .withPlugin(plugin)
+        .selectFrom("person")
+        .select((qb) => {
+          const rsvps = qb
+            .selectFrom("rsvp as r")
+            .innerJoin("person", "person.id", "r.person_id")
+            .select("r.id");
+
+          return [
+            "person.first_name",
+            "person.last_name",
+            jsonArrayFrom(rsvps).as("rsvps"),
+          ];
+        })
+        .execute()
+    );
+
+    expect(ex.message).toBe("No error thrown");
   });
 });
