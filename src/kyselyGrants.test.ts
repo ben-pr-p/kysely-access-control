@@ -1,14 +1,14 @@
-import { expect, test, describe } from "bun:test";
-import { createAccessControlPlugin } from "./kyselyAccessControl";
-import { Grant, createKyselyGrantGuard } from "./kyselyGrants";
+import { describe, expect, test } from "bun:test";
 import {
-  Generated,
   DummyDriver,
+  Generated,
   Kysely,
   PostgresAdapter,
   PostgresIntrospector,
   PostgresQueryCompiler,
 } from "kysely";
+import { createAccessControlPlugin } from "./kyselyAccessControl";
+import { Grant, createKyselyGrantGuard } from "./kyselyGrants";
 
 interface Person {
   id: Generated<number>;
@@ -359,6 +359,32 @@ describe("kysely-grants", () => {
 
     expect(sql).toEqual(
       `select "id", "first_name", "last_name" from "person" where (("person"."first_name" = $1 or "person"."first_name" = $2) and "person"."last_name" = $3) and "person"."id" > $4`
+    );
+  });
+
+  test("should add where clause to update query if update has where clause", async () => {
+    const plugin = createPlugin([
+      {
+        table: "person",
+        for: "select",
+      },
+      {
+        table: "person",
+        for: "update",
+        where: (eb) => eb("person.id", "=", 1),
+      },
+    ]);
+
+    const query = db
+      .withPlugin(plugin)
+      .updateTable("person")
+      .set({ first_name: "Jane" })
+      .where("person.id", "=", 2);
+
+    const { sql } = query.compile();
+
+    expect(sql).toEqual(
+      `update "person" set "first_name" = $1 where "person"."id" = $2 and "person"."id" = $3`
     );
   });
 });
