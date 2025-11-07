@@ -1,5 +1,7 @@
 {
   "name": "kysely-access-control",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "module": "index.ts",
   "version": "0.0.5",
   "scripts": {
@@ -19,6 +21,14 @@
   "files": [
     "dist"
   ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "repository": {
     "type": "git",
     "url": "git@github.com:ben-pr-p/kysely-access-control.git"
