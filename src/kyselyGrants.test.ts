@@ -396,4 +396,30 @@ describe("kysely-grants", () => {
 
     expect(ex.message).toBe("No error thrown");
   });
+
+  test("should add where clause to update query if update has where clause", async () => {
+    const plugin = createPlugin([
+      {
+        table: "person",
+        for: "select",
+      },
+      {
+        table: "person",
+        for: "update",
+        where: (eb) => eb("person.id", "=", 1),
+      },
+    ]);
+
+    const query = db
+      .withPlugin(plugin)
+      .updateTable("person")
+      .set({ first_name: "Jane" })
+      .where("person.id", "=", 2);
+
+    const { sql } = query.compile();
+
+    expect(sql).toEqual(
+      `update "person" set "first_name" = $1 where "person"."id" = $2 and "person"."id" = $3`
+    );
+  });
 });
