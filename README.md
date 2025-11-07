@@ -196,6 +196,25 @@ Unfortunately, even those you provide the column list to Kysely as a type, that 
 system (or at all by the runtime), and as a result we cannot do the sensible thing of replacing a `.selectAll()` with a
 select of all columns.
 
+## Table Aliases in Subqueries
+
+Table aliases in subqueries (e.g., `selectFrom('table as t')`) are not currently supported. When using table aliases
+in subqueries, the library may fail to properly enforce permissions or throw errors.
+
+For example, the following pattern will not work:
+```typescript
+.select((qb) => {
+  const rsvps = qb
+    .selectFrom("rsvp as r")
+    .innerJoin("person", "person.id", "r.person_id")
+    .select("r.id");
+  
+  return [jsonArrayFrom(rsvps).as("rsvps")];
+})
+```
+
+Use the full table name without aliases in subqueries to ensure proper permission enforcement.
+
 # Features
 
 ## Table/Column Statement Type + Context Controls
