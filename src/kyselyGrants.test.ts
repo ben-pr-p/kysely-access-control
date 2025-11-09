@@ -422,4 +422,34 @@ describe("kysely-grants", () => {
       `update "person" set "first_name" = $1 where "person"."id" = $2 and "person"."id" = $3`
     );
   });
+
+  test("should enforce access control on update-set-from query", async () => {
+    const plugin = createPlugin([
+      {
+        table: "person",
+        for: "select",
+      },
+      {
+        table: "person",
+        for: "update",
+        where: (eb) => eb("person.id", "=", eb.lit(1)),
+      },
+      {
+        table: "rsvp",
+        for: "select",
+      },
+    ]);
+
+    const query = db
+      .withPlugin(plugin)
+      .updateTable("person")
+      .set({ first_name: "Jane" })
+      .from("rsvp")
+      .whereRef("rsvp.person_id", "=", "person.id")
+      .compile();
+
+    expect(query.sql).toEqual(
+      `update "person" set "first_name" = $1 from "rsvp" where "person"."id" = 1 and "rsvp"."person_id" = "person"."id"`
+    );
+  });
 });

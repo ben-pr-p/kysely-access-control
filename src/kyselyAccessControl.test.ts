@@ -325,9 +325,7 @@ describe("kysely-access-control", () => {
         .execute()
     );
 
-    expect(ex.message).toBe(
-      "SELECT denied on column rsvp.attended"
-    );
+    expect(ex.message).toBe("SELECT denied on column rsvp.attended");
   });
 
   test("should apply table access control to subqueries in jsonObjectFrom", async () => {
@@ -353,9 +351,7 @@ describe("kysely-access-control", () => {
         .execute()
     );
 
-    expect(ex.message).toBe(
-      "SELECT denied on table rsvp"
-    );
+    expect(ex.message).toBe("SELECT denied on table rsvp");
   });
 
   test("should apply column omission to subqueries in jsonObjectFrom", async () => {
@@ -700,6 +696,38 @@ describe("kysely-access-control", () => {
 
     expect(compiledDelete.sql).toBe(
       `delete from "rsvp" using (select * from "person" where "person"."first_name" = $1) as "person" where "rsvp"."person_id" = "person"."id"`
+    );
+  });
+
+  test("should enforce access control on update-set-from query", async () => {
+    const guard: KyselyAccessControlGuard = {
+      table: (table, statementType) => {
+        // Allow reading from all tables
+        if (statementType === StatementType.Select) {
+          return Allow;
+        }
+        // Only allow writing to rsvp table
+        if (table.identifier.name === "rsvp") {
+          return Allow;
+        }
+        return Deny;
+      },
+      column: (_table, _column) => {
+        return Allow;
+      },
+    };
+
+    const compiledUpdate = db
+      .withPlugin(createAccessControlPlugin(guard))
+      .updateTable("rsvp")
+      .set({ attended: true })
+      .from("person")
+      .whereRef("rsvp.person_id", "=", "person.id")
+      .where("person.first_name", "=", "Ben")
+      .compile();
+
+    expect(compiledUpdate.sql).toBe(
+      `update "rsvp" set "attended" = $1 from "person" where "rsvp"."person_id" = "person"."id" and "person"."first_name" = $2`
     );
   });
 });
