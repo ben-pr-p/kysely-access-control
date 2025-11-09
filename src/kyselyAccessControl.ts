@@ -501,7 +501,7 @@ export const createAccessControlPlugin = <KyselyDatabase = unknown>(
 
         const guardResult = fullGuard.table(
           from.table,
-          StatementType.Update,
+          StatementType.Select,
           TableUsageContext.TableInJoin
         );
 
